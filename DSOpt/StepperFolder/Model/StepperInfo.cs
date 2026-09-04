@@ -17,7 +17,7 @@ namespace Stepper
         {
             get
             {
-                return "1.5.0";
+                return "1.5.3";
             }
         }
 

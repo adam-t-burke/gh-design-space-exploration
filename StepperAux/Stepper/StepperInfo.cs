@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Drawing;
 using Grasshopper.Kernel;
 
@@ -21,7 +21,7 @@ namespace Stepper
         {
             get
             {
-                return "1.5.0";
+                return "1.5.3";
             }
         }
 

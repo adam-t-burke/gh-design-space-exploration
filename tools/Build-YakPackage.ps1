@@ -36,7 +36,6 @@ $ExpectedGha = @(
     "Tilde",
     "Writer",
     "MOO",
-    "Gradient_MOO",
     "Radical",
     "DSOpt",
     "Stepper"
@@ -55,7 +54,6 @@ $PluginProjectDirs = @(
     "Tilde",
     "Writer",
     "MOO",
-    "Gradient_MOO",
     "Radical",
     "DSOpt",
     "StepperAux"
@@ -220,7 +218,6 @@ $ShipTargets = @(
     "Tilde",
     "Writer",
     "MOO",
-    "Gradient_MOO",
     "Radical",
     "DSOpt",
     "Stepper"
@@ -254,6 +251,11 @@ if (Test-Path $StageDir) {
 }
 New-Item -ItemType Directory -Path $StageDir | Out-Null
 Copy-Item -LiteralPath $ManifestSource -Destination (Join-Path $StageDir "manifest.yml")
+$iconSource = Join-Path $RepoRoot "yak\dselogowhitesquare.png"
+if (-not (Test-Path $iconSource)) {
+    throw "Missing package icon: $iconSource"
+}
+Copy-Item -LiteralPath $iconSource -Destination (Join-Path $StageDir "dselogowhitesquare.png")
 
 $searchRoots = @()
 $outputDir = Join-Path $RepoRoot "Output"
