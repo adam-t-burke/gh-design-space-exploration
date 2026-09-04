@@ -228,7 +228,45 @@ gh-design-space-exploration/
 4. Build solution (all projects should build successfully)
 5. Built `.gha` files will be copied to `Output/` directory
 
+To produce a Rhino Package Manager (Yak) archive instead:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools\Build-YakPackage.ps1
+```
+
+The script restores NuGet packages, builds `AllProjects.sln` (Release | Any CPU), stages `.gha` files with dependency DLLs (including native NLopt), and writes a `.yak` file under `artifacts/`.
+
 ### Installation
-Copy the built `.gha` files from the `Output/` directory to your Grasshopper Components folder.
+Install from Rhino 8 on Windows:
+
+1. Run `_PackageManager`
+2. Search for **design-space-exploration**
+3. Install and restart Rhino / Grasshopper
+
+No copy into the Grasshopper Components folder is required. The package ships the Grasshopper assemblies and their dependency DLLs.
+
+Until the package is on the public Yak server, install a locally built archive:
+
+```text
+"C:\Program Files\Rhino 8\System\Yak.exe" install --source artifacts design-space-exploration
+```
+
+Or choose **Install from file** in the Package Manager and select the `.yak` under `artifacts/`.
+
+### Publishing a Yak package
+Do not push to the public server until you intend to release. After a successful `tools\Build-YakPackage.ps1` run:
+
+```text
+"C:\Program Files\Rhino 8\System\Yak.exe" login
+"C:\Program Files\Rhino 8\System\Yak.exe" push artifacts\<package>.yak
+```
+
+To try a dry run first, the test server is `https://test.yak.rhino3d.com` (it is wiped daily and packages there are not installable from the Rhino UI):
+
+```text
+"C:\Program Files\Rhino 8\System\Yak.exe" push --source https://test.yak.rhino3d.com artifacts\<package>.yak
+```
+
+The package is Windows-only (`--platform win`) because several components use WPF.
 
 ---

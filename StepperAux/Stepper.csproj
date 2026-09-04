@@ -220,11 +220,11 @@
     <None Include="Resources\DSOpt.png" />
     <None Include="Resources\DSOpt2.png" />
     <None Include="Resources\Stepper.png" />
-    <Content Include="x64\libnlopt-0.def" />
-    <Content Include="x64\libnlopt-0.dll">
+    <Content Include="x64\libnlopt-0.def" Condition="Exists('x64\libnlopt-0.def')" />
+    <Content Include="x64\libnlopt-0.dll" Condition="Exists('x64\libnlopt-0.dll')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="x64\nlopt.h" />
+    <Content Include="x64\nlopt.h" Condition="Exists('x64\nlopt.h')" />
   </ItemGroup>
   <ItemGroup>
     <Page Include="Stepper\View\GroupVariableControl.xaml">
@@ -290,5 +290,7 @@
     <PropertyGroup>
       <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
     </PropertyGroup>
+    <Error Condition="!Exists('..\packages\NLoptNet.1.4.3\build\net47\NLoptNet.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\NLoptNet.1.4.3\build\net47\NLoptNet.targets'))" />
   </Target>
+  <Import Project="..\packages\NLoptNet.1.4.3\build\net47\NLoptNet.targets" Condition="Exists('..\packages\NLoptNet.1.4.3\build\net47\NLoptNet.targets')" />
 </Project>

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Drawing;
 using Grasshopper.Kernel;
 
@@ -20,6 +20,14 @@ namespace DesignLogger
                 return "DesignLogger";
             }
         }
+        public override string Version
+        {
+            get
+            {
+                return "1.5.0";
+            }
+        }
+
         public override Bitmap Icon
         {
             get

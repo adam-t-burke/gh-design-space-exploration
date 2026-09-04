@@ -17,6 +17,14 @@ namespace Stepper
             }
         }
 
+        public override string Version
+        {
+            get
+            {
+                return "1.5.0";
+            }
+        }
+
         // Token: 0x1700003D RID: 61
         // (get) Token: 0x060000BA RID: 186 RVA: 0x0000412C File Offset: 0x0000232C
         public override Bitmap Icon

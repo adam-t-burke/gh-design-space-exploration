@@ -80,8 +80,11 @@ bld/
 # The packages folder can be ignored because of Package Restore
 **/packages/*
 
-# Special output folder
-Output/
+# Special output folder (repo root only; do not ignore nested source folders named Output)
+/Output/
+
+# Yak packaging output
+artifacts/
 
 # Temp files
 ~*

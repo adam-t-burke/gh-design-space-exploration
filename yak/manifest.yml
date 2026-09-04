@@ -1,0 +1,18 @@
+name: design-space-exploration
+version: $version
+authors:
+  - MIT Digital Structures
+  - Nathan Brown
+  - Renaud Danhaive
+  - Yijiang Huang
+  - Vipul Sachdeva
+  - Martijn Eken
+description: >
+  Design Space Exploration (DSE) toolkit for Grasshopper: sampling, catalog,
+  simplification, and multi-objective optimization components for Rhino 8 on Windows.
+url: https://github.com/adam-t-burke/gh-design-space-exploration
+keywords:
+  - grasshopper
+  - optimization
+  - design-space
+  - sampling

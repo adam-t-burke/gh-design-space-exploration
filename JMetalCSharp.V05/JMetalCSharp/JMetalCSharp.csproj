@@ -36,7 +36,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="log4net, Version=3.0.2.0, Culture=neutral, PublicKeyToken=669e0ddf0bb1aa2a, processorArchitecture=MSIL">
-      <HintPath>..\packages\log4net.3.0.2\lib\net462\log4net.dll</HintPath>
+      <HintPath>..\..\packages\log4net.3.0.2\lib\net462\log4net.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Configuration" />
@@ -72,18 +72,7 @@
     <Compile Include="Encoding\Variable\Int.cs" />
     <Compile Include="Encoding\Variable\Permutation.cs" />
     <Compile Include="Encoding\Variable\Real.cs" />
-    <Compile Include="Experiments\Experiment.cs" />
     <Compile Include="Experiments\ExperimentProblem.cs" />
-    <Compile Include="Experiments\Output\BoxPlotData.cs" />
-    <Compile Include="Experiments\Output\BoxPlots.cs" />
-    <Compile Include="Experiments\Output\CellColorEnum.cs" />
-    <Compile Include="Experiments\Output\ExperimentResult.cs" />
-    <Compile Include="Experiments\Output\FriedmanTables.cs" />
-    <Compile Include="Experiments\Output\LatexTableData.cs" />
-    <Compile Include="Experiments\Output\LatexTables.cs" />
-    <Compile Include="Experiments\Output\Pair.cs" />
-    <Compile Include="Experiments\Output\QualityIndicatorTables.cs" />
-    <Compile Include="Experiments\Output\WilcoxonTextTables.cs" />
     <Compile Include="Experiments\Utils\Statistics.cs" />
     <Compile Include="Metaheuristics\AbYSS\AbYSS.cs" />
     <Compile Include="Metaheuristics\AlgorithmFactory.cs" />

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Drawing;
 using Grasshopper.Kernel;
 
@@ -13,6 +13,14 @@ namespace Diversity
                 return "Diversity";
             }
         }
+        public override string Version
+        {
+            get
+            {
+                return "1.5.0";
+            }
+        }
+
         public override Bitmap Icon
         {
             get

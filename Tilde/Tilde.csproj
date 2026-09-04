@@ -76,6 +76,7 @@
       <DesignTime>True</DesignTime>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
+    <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Tilde\ProblemBuilder.cs" />
     <Compile Include="Tilde\Properties\Resources.cs" />
     <Compile Include="Tilde\TildeComponent.cs" />

@@ -181,7 +181,6 @@
       <DependentUpon>VariableControl.xaml</DependentUpon>
     </Compile>
     <Compile Include="StepperFolder\Model\StepperOptimizer.cs" />
-    <Compile Include="StepperFolder\Model\StepperInfo.cs" />
     <Compile Include="DSOptimization\ViewModel\IStepDataElement.cs" />
     <Compile Include="StepperFolder\ViewModel\ObjectiveVM.cs" />
     <Compile Include="StepperFolder\ViewModel\StepperGraphVM.cs" />
@@ -212,21 +211,21 @@
   <ItemGroup>
     <None Include="Resources\DSOpt.png" />
     <None Include="Resources\DSOpt2.png" />
-    <Content Include="x64\libnlopt-0.def" />
-    <Content Include="x64\libnlopt-0.dll">
+    <Content Include="x64\libnlopt-0.def" Condition="Exists('x64\libnlopt-0.def')" />
+    <Content Include="x64\libnlopt-0.dll" Condition="Exists('x64\libnlopt-0.dll')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="x64\nlopt.h" />
+    <Content Include="x64\nlopt.h" Condition="Exists('x64\nlopt.h')" />
     <Content Include="StepperFolder\x32\libnlopt-0.def" />
     <Content Include="StepperFolder\x32\libnlopt-0.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="StepperFolder\x32\nlopt.h" />
-    <Content Include="StepperFolder\x64\libnlopt-0.def" />
-    <Content Include="StepperFolder\x64\libnlopt-0.dll">
+    <Content Include="StepperFolder\x64\libnlopt-0.def" Condition="Exists('StepperFolder\x64\libnlopt-0.def')" />
+    <Content Include="StepperFolder\x64\libnlopt-0.dll" Condition="Exists('StepperFolder\x64\libnlopt-0.dll')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="StepperFolder\x64\nlopt.h" />
+    <Content Include="StepperFolder\x64\nlopt.h" Condition="Exists('StepperFolder\x64\nlopt.h')" />
   </ItemGroup>
   <ItemGroup>
     <Page Include="DSOptimization\View\ConstraintControl.xaml">

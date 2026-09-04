@@ -1,4 +1,4 @@
-﻿namespace Tilde
+namespace Tilde
 {
     using Grasshopper.Kernel;
     using System;
@@ -53,6 +53,14 @@
                 return "Tilde";
             }
         }
+        public override string Version
+        {
+            get
+            {
+                return "1.5.0";
+            }
+        }
+
     }
 }
 
