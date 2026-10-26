@@ -1,0 +1,125 @@
+# Builds AllProjects.sln without a Rhino install. RhinoCommon and Grasshopper
+# come from PackageReference.
+#
+# Windows builds the solution with no -f, so multi-targeted projects produce
+# net48 and net7.0, and net48-only projects build as net48.
+#
+# macos-latest has no .NET Framework 4.8 targeting pack, so net48 is not built
+# there. `dotnet build AllProjects.sln -c Debug -f net7.0` is not used while any
+# project omits net7.0: -f sets the global TargetFramework property and would
+# compile those projects as net7.0. Radical, DSOpt, and Stepper list a literal
+# net7.0 TFM and do not set UseWPF, so this job includes them. The macOS job
+# reads each solution csproj and builds only projects whose TargetFramework or
+# TargetFrameworks element lists net7.0. When every project lists it, the job
+# switches to the solution-level -f net7.0 command.
+# A project that gains a literal net7.0 TFM is included without editing this
+# file. A TFM supplied only from Directory.Build.props, or written as a
+# property such as $(DseTfms), is not detected.
+
+name: build
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Build solution (net48 and net7.0)
+        if: runner.os == 'Windows'
+        run: dotnet build AllProjects.sln -c Debug
+
+      - name: Build projects that list net7.0
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          extract_tfms() {
+            perl -0777 -e '
+              use strict;
+              use warnings;
+              my $path = $ARGV[0];
+              open my $fh, "<:raw", $path or die "Cannot read $path: $!";
+              local $/;
+              my $text = <$fh>;
+              close $fh;
+              $text =~ s/\r//g;
+              $text =~ s/<!--.*?-->//sg;
+              while ($text =~ /<TargetFrameworks>\s*([^<]+?)\s*<\/TargetFrameworks>/g) {
+                print "$1\n";
+              }
+              while ($text =~ /<TargetFramework>\s*([^<]+?)\s*<\/TargetFramework>/g) {
+                print "$1\n";
+              }
+            ' "$1"
+          }
+
+          net7_projects=()
+          skipped=()
+          project_list=$(mktemp)
+          perl -ne 's/\r//g; print "$1\n" if /,\s*"([^"]+\.csproj)"/' AllProjects.sln > "$project_list"
+
+          while IFS= read -r rel || [ -n "$rel" ]; do
+            [ -z "$rel" ] && continue
+            proj=${rel//\\//}
+            if [ ! -f "$proj" ]; then
+              echo "Solution project not found: $proj" >&2
+              exit 1
+            fi
+
+            has_net7=0
+            tfm_text=$(extract_tfms "$proj" | tr '\n' ';')
+            old_ifs=$IFS
+            IFS=';'
+            for part in $tfm_text; do
+              token=$(printf '%s' "$part" | tr -d '[:space:]')
+              if [ "$token" = "net7.0" ]; then
+                has_net7=1
+              fi
+            done
+            IFS=$old_ifs
+
+            if [ "$has_net7" -eq 1 ]; then
+              net7_projects+=("$proj")
+            else
+              skipped+=("$proj")
+            fi
+          done < "$project_list"
+          rm -f "$project_list"
+
+          if [ "${#net7_projects[@]}" -eq 0 ]; then
+            echo "No project in AllProjects.sln lists net7.0." >&2
+            exit 1
+          fi
+
+          if [ "${#skipped[@]}" -eq 0 ]; then
+            echo "Every solution project lists net7.0."
+            echo "dotnet build AllProjects.sln -c Debug -f net7.0"
+            dotnet build AllProjects.sln -c Debug -f net7.0
+          else
+            echo "dotnet build AllProjects.sln -c Debug -f net7.0 is not used."
+            echo "-f would set TargetFramework=net7.0 for every project, including net48-only ones."
+            echo "Skipped on macOS:"
+            printf '  %s\n' "${skipped[@]}"
+            for proj in "${net7_projects[@]}"; do
+              echo "dotnet build $proj -c Debug -f net7.0"
+              dotnet build "$proj" -c Debug -f net7.0
+            done
+          fi

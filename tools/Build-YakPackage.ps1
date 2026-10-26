@@ -1,17 +1,33 @@
 <#
 .SYNOPSIS
-  Builds AllProjects.sln and stages a Windows Yak package for Design Space Exploration.
+  Builds AllProjects.sln and stages a Yak package for Design Space Exploration.
 
 .DESCRIPTION
-  Restores NuGet packages, compiles Release, copies Grasshopper .gha files plus
-  required dependency DLLs (including native NLopt) into a flat staging folder,
-  then runs `yak build --platform win`.
+  Default: restores NuGet packages, compiles with MSBuild, copies Grasshopper
+  .gha files plus dependency DLLs (including flat Windows NLopt aliases) into a
+  staging folder, then runs `yak build --platform win`. That path writes
+  artifacts/yak and does not publish.
+
+  -MultiTarget: `dotnet build` (every target framework), stages net48/ and net7.0/
+  under artifacts/yak-any, then runs `yak build --platform any`. Does not delete
+  or overwrite artifacts/yak.
+
+  A plugin is required in a TFM folder only when its csproj lists that TFM.
+  Managed optimization assemblies and the NLopt runtimes/ tree are copied from
+  each plugin TFM output, beside the .gha the build already emitted. They are
+  not taken from the NuGet cache. A plugin whose output does not contain
+  DSE.Optimization.Core, DSE.Optimization.UI, NLoptNet, MathNet.Numerics, or
+  System.Resources.Extensions does not contribute those files. JClement.NLoptNet
+  supplies the osx-arm64 and osx-x64 libnlopt.dylib files and the Windows
+  nlopt.dll files under that runtimes tree. Eto, RhinoCommon, and Grasshopper
+  are not copied into the package.
 #>
 [CmdletBinding()]
 param(
     [string]$Configuration = "Release",
     [switch]$SkipBuild,
-    [switch]$SkipYak
+    [switch]$SkipYak,
+    [switch]$MultiTarget
 )
 
 Set-StrictMode -Version Latest
@@ -161,7 +177,10 @@ function Find-Yak {
 
 function Test-ExcludedAssembly([string]$Path) {
     $name = [System.IO.Path]::GetFileNameWithoutExtension($Path)
-    return $SdkAssemblyNames.Contains($name)
+    if ($SdkAssemblyNames.Contains($name)) { return $true }
+    # Rhino ships Eto. Do not vendor Eto.dll or Eto.* into the Yak package.
+    if ($name -eq "Eto" -or $name.StartsWith("Eto.")) { return $true }
+    return $false
 }
 
 function Copy-StagedFile {
@@ -198,6 +217,366 @@ function Get-CompanionFiles([string]$Directory) {
     return $files
 }
 
+function Get-CsprojText([string]$CsprojPath) {
+    $text = Get-Content -LiteralPath $CsprojPath -Raw
+    return [regex]::Replace($text, '(?s)<!--.*?-->', '')
+}
+
+function Get-ProjectTfms([string]$CsprojPath) {
+    $text = Get-CsprojText $CsprojPath
+    $tfms = New-Object System.Collections.Generic.List[string]
+    foreach ($match in [regex]::Matches($text, '<TargetFrameworks>\s*([^<]+?)\s*</TargetFrameworks>')) {
+        foreach ($part in $match.Groups[1].Value.Split(';')) {
+            $token = $part.Trim()
+            if ($token) { $tfms.Add($token) }
+        }
+    }
+    foreach ($match in [regex]::Matches($text, '<TargetFramework>\s*([^<]+?)\s*</TargetFramework>')) {
+        $token = $match.Groups[1].Value.Trim()
+        if ($token) { $tfms.Add($token) }
+    }
+    return @($tfms | Select-Object -Unique)
+}
+
+function Get-SolutionProjects([string]$SolutionPath) {
+    $projects = New-Object System.Collections.Generic.List[string]
+    foreach ($line in Get-Content -LiteralPath $SolutionPath) {
+        if ($line -match 'Project\("\{[0-9A-Fa-f-]+\}"\)\s*=\s*"[^"]+",\s*"([^"]+\.csproj)"') {
+            $projects.Add((Join-Path $RepoRoot $Matches[1]))
+        }
+    }
+    return @($projects)
+}
+
+function Test-ExeProject([string]$CsprojPath) {
+    $text = Get-CsprojText $CsprojPath
+    return $text -match '<OutputType>\s*(Exe|WinExe)\s*</OutputType>'
+}
+
+function Test-GrasshopperProject([string]$CsprojPath) {
+    $text = Get-CsprojText $CsprojPath
+    return $text -match '<DseGrasshopperPlugin>\s*true\s*</DseGrasshopperPlugin>'
+}
+
+function Get-PluginOutputName([string]$CsprojPath) {
+    $text = Get-CsprojText $CsprojPath
+    if ($text -match '<TargetName>\s*([^<]+?)\s*</TargetName>') {
+        return $Matches[1].Trim()
+    }
+    if ($text -match '<AssemblyName>\s*([^<]+?)\s*</AssemblyName>') {
+        return $Matches[1].Trim()
+    }
+    return [System.IO.Path]::GetFileNameWithoutExtension($CsprojPath)
+}
+
+function Get-ProjectOutputDir([string]$ProjectPath, [string]$Tfm) {
+    $projectDir = Split-Path -Parent $ProjectPath
+    $configs = @($Configuration)
+    if ($Configuration -eq "Debug") {
+        $configs = @("Debug", "Debug64", "Debug32")
+    }
+
+    $relativeBins = @()
+    foreach ($cfg in $configs) {
+        $relativeBins += (Join-Path "bin" (Join-Path $cfg $Tfm))
+        # Solution configs such as Tilde's Debug|Any CPU map to Debug|x86, so the
+        # SDK writes bin\x86\Debug\<tfm> instead of bin\Debug\<tfm>.
+        foreach ($platform in @("x64", "x86")) {
+            $relativeBins += (Join-Path "bin" (Join-Path $platform (Join-Path $cfg $Tfm)))
+        }
+    }
+
+    foreach ($relative in $relativeBins) {
+        $dir = Join-Path $projectDir $relative
+        if (-not (Test-Path -LiteralPath $dir)) { continue }
+        $payload = @(Get-ChildItem -LiteralPath $dir -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.Extension -in ".gha", ".dll" })
+        if ($payload.Count -gt 0) { return $dir }
+    }
+
+    if ($Tfm -eq "net48") {
+        foreach ($cfg in $configs) {
+            $flat = Join-Path $projectDir (Join-Path "bin" $cfg)
+            if (-not (Test-Path -LiteralPath $flat)) { continue }
+            $gha = @(Get-ChildItem -LiteralPath $flat -File -Filter "*.gha" -ErrorAction SilentlyContinue)
+            if ($gha.Count -gt 0) { return $flat }
+        }
+    }
+
+    return $null
+}
+
+function Copy-NativeSubtrees([string]$SourceDir, [string]$DestinationDir) {
+    $sourceRoot = [System.IO.Path]::GetFullPath($SourceDir).TrimEnd('\', '/')
+    foreach ($name in @("runtimes", "x64", "x86")) {
+        $src = Join-Path $SourceDir $name
+        if (-not (Test-Path -LiteralPath $src)) { continue }
+        $files = @(Get-ChildItem -LiteralPath $src -File -Recurse -ErrorAction SilentlyContinue |
+            Where-Object { $_.Extension -in ".dll", ".so", ".dylib" })
+        foreach ($file in $files) {
+            $full = [System.IO.Path]::GetFullPath($file.FullName)
+            if (-not $full.StartsWith($sourceRoot, [System.StringComparison]::OrdinalIgnoreCase)) { continue }
+            $relative = $full.Substring($sourceRoot.Length).TrimStart('\', '/')
+            $dest = Join-Path $DestinationDir $relative
+            $parent = Split-Path -Parent $dest
+            if (-not (Test-Path -LiteralPath $parent)) {
+                New-Item -ItemType Directory -Path $parent | Out-Null
+            }
+            Copy-Item -LiteralPath $full -Destination $dest -Force
+        }
+    }
+}
+
+$OptimizationManagedDlls = @(
+    "DSE.Optimization.Core.dll",
+    "DSE.Optimization.UI.dll",
+    "NLoptNet.dll",
+    "MathNet.Numerics.dll",
+    "System.Resources.Extensions.dll"
+)
+
+function Copy-OptimizationAssembliesIfPresent([string]$SourceDir, [string]$DestinationDir) {
+    foreach ($name in $OptimizationManagedDlls) {
+        $source = Join-Path $SourceDir $name
+        if (-not (Test-Path -LiteralPath $source)) { continue }
+        Copy-StagedFile -Source $source -DestinationDir $DestinationDir
+    }
+}
+
+function Copy-OutputPayload([string]$SourceDir, [string]$DestinationDir) {
+    $files = @(Get-CompanionFiles $SourceDir)
+    foreach ($file in $files) {
+        if ($null -eq $file) { continue }
+        if (Test-ExcludedAssembly $file.FullName) { continue }
+        if ($file.Extension -eq ".xml") { continue }
+        if ($file.Name -match '\.(pdb|xml|deps\.json|runtimeconfig\.json)$') { continue }
+        if ($file.Name -in @("app.config", "packages.config", "ConsoleTest.exe.config", "MyProject1.dll")) { continue }
+
+        if ($file.Extension -eq ".dll") {
+            $ghaSibling = Join-Path $file.DirectoryName ($file.BaseName + ".gha")
+            if (Test-Path -LiteralPath $ghaSibling) { continue }
+        }
+
+        # Keep native libraries under runtimes/, x64/, or x86/ instead of flattening them.
+        $sourceRoot = [System.IO.Path]::GetFullPath($SourceDir).TrimEnd('\', '/')
+        $full = [System.IO.Path]::GetFullPath($file.FullName)
+        if ($full.StartsWith($sourceRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+            $relative = $full.Substring($sourceRoot.Length).TrimStart('\', '/')
+            $top = ($relative -split '[\\/]', 2)[0]
+            if ($top -in @("runtimes", "x64", "x86")) { continue }
+        }
+
+        Copy-StagedFile -Source $file.FullName -DestinationDir $DestinationDir
+    }
+
+    Copy-OptimizationAssembliesIfPresent -SourceDir $SourceDir -DestinationDir $DestinationDir
+    Copy-NativeSubtrees -SourceDir $SourceDir -DestinationDir $DestinationDir
+}
+
+function Find-PackageDir([string]$PackageId) {
+    $escaped = [regex]::Escape($PackageId)
+    $namePattern = "^$escaped\.\d"
+
+    $repoPackages = Join-Path $RepoRoot "packages"
+    if (Test-Path -LiteralPath $repoPackages) {
+        $hit = @(Get-ChildItem -LiteralPath $repoPackages -Directory -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -match $namePattern } |
+            Sort-Object Name -Descending)
+        if ($hit.Count -gt 0) { return $hit[0].FullName }
+    }
+
+    $nugetRoot = $env:NUGET_PACKAGES
+    if (-not $nugetRoot) {
+        $nugetRoot = Join-Path $env:USERPROFILE ".nuget\packages"
+    }
+    $idDir = Join-Path $nugetRoot $PackageId.ToLowerInvariant()
+    if (Test-Path -LiteralPath $idDir) {
+        $hit = @(Get-ChildItem -LiteralPath $idDir -Directory -ErrorAction SilentlyContinue |
+            Sort-Object Name -Descending)
+        if ($hit.Count -gt 0) { return $hit[0].FullName }
+    }
+
+    return $null
+}
+
+function Get-BestLibDirectory([string]$PackageDir, [string]$Tfm) {
+    $prefs = if ($Tfm -eq "net7.0") {
+        @("net7.0", "net6.0", "net5.0", "netcoreapp3.1", "netstandard2.1", "netstandard2.0", "net48", "net462", "net47")
+    }
+    else {
+        @("net48", "net472", "net471", "net47", "net462", "net461", "net46", "net45", "netstandard2.0", "netstandard2.1")
+    }
+
+    foreach ($pref in $prefs) {
+        $lib = Join-Path $PackageDir (Join-Path "lib" $pref)
+        if (Test-Path -LiteralPath $lib) { return $lib }
+    }
+    return $null
+}
+
+function Copy-PackageLibDlls([string]$PackageId, [string]$Tfm, [string]$DestinationDir) {
+    $packageDir = Find-PackageDir $PackageId
+    if (-not $packageDir) {
+        Write-Warning "Satellite package not found (skipped): $PackageId"
+        return
+    }
+
+    $lib = Get-BestLibDirectory $packageDir $Tfm
+    if (-not $lib) {
+        Write-Warning "No compatible lib folder for $PackageId ($Tfm)"
+        return
+    }
+
+    $files = @(Get-ChildItem -LiteralPath $lib -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.Extension -eq ".dll" -or $_.Name -like "*.dll.config" })
+    foreach ($file in $files) {
+        if (Test-ExcludedAssembly $file.FullName) { continue }
+        Copy-StagedFile -Source $file.FullName -DestinationDir $DestinationDir -PreferExisting
+    }
+}
+
+function Publish-MultiTargetPackage {
+    $stageRoot = Join-Path $ArtifactsRoot "yak-any"
+    if (Test-Path -LiteralPath $stageRoot) {
+        Remove-Item -LiteralPath $stageRoot -Recurse -Force
+    }
+    New-Item -ItemType Directory -Path $stageRoot | Out-Null
+    Copy-Item -LiteralPath $ManifestSource -Destination (Join-Path $stageRoot "manifest.yml")
+    $iconSource = Join-Path $RepoRoot "yak\dselogowhitesquare.png"
+    if (-not (Test-Path -LiteralPath $iconSource)) {
+        throw "Missing package icon: $iconSource"
+    }
+    Copy-Item -LiteralPath $iconSource -Destination (Join-Path $stageRoot "dselogowhitesquare.png")
+
+    $projects = @(Get-SolutionProjects $Solution)
+    if ($projects.Count -eq 0) {
+        throw "No projects found in $Solution"
+    }
+
+    # These are not always copied next to every plugin by the SDK build.
+    # Optimization assemblies, including MathNet and System.Resources.Extensions,
+    # are copied only when a plugin TFM output already contains them.
+    $alwaysSatellites = @(
+        "Accord",
+        "Accord.MachineLearning",
+        "Accord.Math",
+        "Accord.Statistics",
+        "log4net",
+        "alglib.net"
+    )
+
+    foreach ($tfm in @("net48", "net7.0")) {
+        $tfmDir = Join-Path $stageRoot $tfm
+        $stagedGha = New-Object System.Collections.Generic.List[string]
+
+        foreach ($project in $projects) {
+            if (-not (Test-Path -LiteralPath $project)) { continue }
+            $tfms = @(Get-ProjectTfms $project)
+            if ($tfms -notcontains $tfm) { continue }
+            if (Test-ExeProject $project) { continue }
+
+            $outputDir = Get-ProjectOutputDir $project $tfm
+            $isPlugin = Test-GrasshopperProject $project
+            if ($isPlugin) {
+                $pluginName = Get-PluginOutputName $project
+                if (-not $outputDir) {
+                    throw "Missing $tfm output for $pluginName ($project). Build $Configuration before packing."
+                }
+                $gha = Join-Path $outputDir ($pluginName + ".gha")
+                if (-not (Test-Path -LiteralPath $gha)) {
+                    throw "Missing $pluginName.gha in $outputDir"
+                }
+            }
+            elseif (-not $outputDir) {
+                continue
+            }
+
+            if (-not (Test-Path -LiteralPath $tfmDir)) {
+                New-Item -ItemType Directory -Path $tfmDir | Out-Null
+            }
+            Copy-OutputPayload -SourceDir $outputDir -DestinationDir $tfmDir
+            if ($isPlugin) {
+                $stagedGha.Add((Get-PluginOutputName $project))
+                Write-Host "Staged ${tfm}: $(Get-PluginOutputName $project).gha"
+            }
+        }
+
+        if ($stagedGha.Count -eq 0) {
+            Write-Warning "No plugins staged for $tfm."
+            continue
+        }
+
+        foreach ($packageId in $alwaysSatellites) {
+            Copy-PackageLibDlls -PackageId $packageId -Tfm $tfm -DestinationDir $tfmDir
+        }
+
+        $optimizationPlugins = @($stagedGha | Where-Object { $_ -in @("Radical", "DSOpt", "Stepper") })
+        if ($optimizationPlugins.Count -gt 0) {
+            $requiredAssets = @(
+                "DSE.Optimization.Core.dll",
+                "DSE.Optimization.UI.dll",
+                "NLoptNet.dll",
+                "MathNet.Numerics.dll",
+                "System.Resources.Extensions.dll",
+                "runtimes\win-x64\native\nlopt.dll",
+                "runtimes\win-x86\native\nlopt.dll",
+                "runtimes\osx-arm64\native\libnlopt.dylib",
+                "runtimes\osx-x64\native\libnlopt.dylib"
+            )
+            $missingAssets = @($requiredAssets | Where-Object {
+                -not (Test-Path -LiteralPath (Join-Path $tfmDir $_))
+            })
+            if ($missingAssets) {
+                throw "Staged $tfm package is missing optimization files from plugin output: $($missingAssets -join ', '). Build Radical, DSOpt, and Stepper before packing. The pack script does not fetch these from the NuGet cache."
+            }
+            Write-Host "Staged ${tfm} optimization assemblies and runtimes/ from plugin output."
+        }
+
+        $missingDlls = @("DSECommon.dll", "JMetalCSharp.dll") | Where-Object {
+            -not (Test-Path -LiteralPath (Join-Path $tfmDir $_))
+        }
+        if ($missingDlls) {
+            throw "Staged $tfm package is missing required libraries: $($missingDlls -join ', ')"
+        }
+    }
+
+    $tfmCount = @(Get-ChildItem -LiteralPath $stageRoot -Directory | Where-Object { $_.Name -in @("net48", "net7.0") }).Count
+    if ($tfmCount -eq 0) {
+        throw "Multi-target stage is empty: $stageRoot"
+    }
+
+    if ($SkipYak) {
+        Write-Host "Skipping yak build (-SkipYak). Stage: $stageRoot"
+        return
+    }
+
+    $yak = Find-Yak
+    if (-not $yak) {
+        throw "Yak.exe not found. Install Rhino 8 or set YAK_EXE to the Yak CLI path."
+    }
+
+    Write-Host "Using Yak: $yak"
+    Push-Location $stageRoot
+    try {
+        & $yak build --platform any
+        if ($LASTEXITCODE -ne 0) {
+            throw "yak build failed with exit code $LASTEXITCODE"
+        }
+    }
+    finally {
+        Pop-Location
+    }
+
+    $yakFile = Get-ChildItem -LiteralPath $stageRoot -Filter "*.yak" | Select-Object -First 1
+    if (-not $yakFile) {
+        throw "yak build completed but no .yak file was produced in $stageRoot"
+    }
+
+    $destYak = Join-Path $ArtifactsRoot $yakFile.Name
+    Move-Item -LiteralPath $yakFile.FullName -Destination $destYak -Force
+    Write-Host "Package: $destYak"
+}
+
 if (-not (Test-Path $ManifestSource)) {
     throw "Missing package manifest: $ManifestSource"
 }
@@ -224,26 +603,40 @@ $ShipTargets = @(
 )
 
 if (-not $SkipBuild) {
-    $msbuild = Find-MSBuild
-    Write-Host "Using MSBuild: $msbuild"
-
-    Write-Host "Clearing SDK-style restore leftovers from packages.config projects..."
-    Clear-SdkRestoreArtifacts
-
-    $nuget = Find-NuGet
-    Write-Host "Using NuGet: $nuget"
-    Write-Host "Restoring NuGet packages..."
-    & $nuget restore $Solution -NonInteractive
-    if ($LASTEXITCODE -ne 0) {
-        throw "NuGet restore failed with exit code $LASTEXITCODE"
+    if ($MultiTarget) {
+        Write-Host "Building with dotnet ($Configuration, all target frameworks)..."
+        & dotnet build $Solution -c $Configuration
+        if ($LASTEXITCODE -ne 0) {
+            throw "dotnet build failed with exit code $LASTEXITCODE"
+        }
     }
+    else {
+        $msbuild = Find-MSBuild
+        Write-Host "Using MSBuild: $msbuild"
 
-    $targetList = $ShipTargets -join ";"
-    Write-Host "Building shipped projects ($Configuration | Any CPU)..."
-    & $msbuild $Solution -t:$targetList -p:Configuration=$Configuration -p:Platform="Any CPU" -verbosity:minimal
-    if ($LASTEXITCODE -ne 0) {
-        throw "Build failed with exit code $LASTEXITCODE"
+        Write-Host "Clearing SDK-style restore leftovers from packages.config projects..."
+        Clear-SdkRestoreArtifacts
+
+        $nuget = Find-NuGet
+        Write-Host "Using NuGet: $nuget"
+        Write-Host "Restoring NuGet packages..."
+        & $nuget restore $Solution -NonInteractive
+        if ($LASTEXITCODE -ne 0) {
+            throw "NuGet restore failed with exit code $LASTEXITCODE"
+        }
+
+        $targetList = $ShipTargets -join ";"
+        Write-Host "Building shipped projects ($Configuration | Any CPU)..."
+        & $msbuild $Solution -t:$targetList -p:Configuration=$Configuration -p:Platform="Any CPU" -verbosity:minimal
+        if ($LASTEXITCODE -ne 0) {
+            throw "Build failed with exit code $LASTEXITCODE"
+        }
     }
+}
+
+if ($MultiTarget) {
+    Publish-MultiTargetPackage
+    return
 }
 
 if (Test-Path $StageDir) {
@@ -325,12 +718,6 @@ foreach ($dir in $companionDirs) {
                 $baseName = $baseName.Substring(0, $baseName.Length - 4)
             }
             if ($ExpectedGha -contains $baseName) { continue }
-
-            # Keep Rhino-provided Eto out of the package unless the Eto.Wpf companion is present.
-            if ($file.BaseName -eq "Eto") {
-                $etoWpf = Join-Path $file.DirectoryName "Eto.Wpf.dll"
-                if (-not (Test-Path $etoWpf)) { continue }
-            }
 
             Copy-StagedFile -Source $file.FullName -DestinationDir $StageDir
         }

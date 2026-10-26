@@ -9,7 +9,9 @@ authors:
   - Martijn Eken
 description: >
   Design Space Exploration (DSE) toolkit for Grasshopper: sampling, catalog,
-  simplification, and multi-objective optimization components for Rhino 8 on Windows.
+  simplification, and multi-objective optimization. The components target Rhino 8
+  on Windows and macOS. Optimization components ship NLopt macOS natives from
+  JClement.NLoptNet.
 url: https://github.com/adam-t-burke/gh-design-space-exploration
 keywords:
   - grasshopper
