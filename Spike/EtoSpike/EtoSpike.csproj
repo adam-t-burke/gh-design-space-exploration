@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <DseGrasshopperPlugin>true</DseGrasshopperPlugin>
+    <TargetFrameworks>net48;net7.0</TargetFrameworks>
+    <RootNamespace>EtoSpike</RootNamespace>
+    <AssemblyName>EtoSpike</AssemblyName>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <Description>Standalone spike. Not part of AllProjects.sln.</Description>
+  </PropertyGroup>
+</Project>
