@@ -1,5 +1,32 @@
 <Project>
-    <PropertyGroup>
-   <LangVersion>8.0</LangVersion>
- </PropertyGroup>
+  <PropertyGroup>
+    <LangVersion>8.0</LangVersion>
+    <!--
+      Rhino 8 / Grasshopper package version shared by SDK projects.
+      8.0.23304.9001 matches the previous HintPath packages. That package only
+      contains lib/net48; net7.0 builds consume it through NuGet asset fallback
+      (NU1701 is suppressed). The first stable 8.x package with lib/net7.0 is
+      8.19.25132.1001. The Eto spike compiled against both; shipping projects stay
+      on 8.0.23304.9001 so the Grasshopper API surface does not move in this phase.
+      Override with -p:DseRhinoVersion=... if a later phase bumps the package.
+    -->
+    <DseRhinoVersion Condition="'$(DseRhinoVersion)' == ''">8.0.23304.9001</DseRhinoVersion>
+  </PropertyGroup>
+
+  <!--
+    Eto reference approach (one approach for every SDK project):
+    Do not add a separate Eto.Forms PackageReference. The RhinoCommon package's
+    lib/$(TargetFramework) folder contains the Eto.dll and Ed.Eto.dll that Rhino
+    loads. RhinoCommon and Grasshopper are PackageReferences with
+    ExcludeAssets=runtime and PrivateAssets=all, so those assemblies are compile-time
+    references only and are not copied into the plugin output. At runtime Rhino
+    supplies them, including on Mac. See Directory.Build.targets.
+  -->
+  <PropertyGroup Condition="'$(UsingMicrosoftNETSdk)' == 'true'">
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <Deterministic>true</Deterministic>
+    <NoWarn>$(NoWarn);NU1701</NoWarn>
+  </PropertyGroup>
 </Project>

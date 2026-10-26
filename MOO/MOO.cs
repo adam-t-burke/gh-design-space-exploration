@@ -9,7 +9,6 @@ using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Special;
 using Grasshopper;
 using log4net;
-using System.Configuration;
 namespace MOO
 {
     public class MOO : GH_Component

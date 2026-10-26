@@ -4,13 +4,28 @@
 
 **Repository**: Design Space Exploration (DSE) Toolkit  
 **Primary Language**: C# 8.0  
-**Target Framework**: .NET Framework 4.8  
+**Target Framework**: SDK-style `net48` and `net7.0` for non-WPF shipping projects. Radical, DSOpt, and Stepper stay on `net48` while their WPF UI remains.  
 **IDE**: Visual Studio 2017+ (Format Version 12.00)  
 **Main Solution**: `AllProjects.sln`  
 **Total Projects**: 23 projects in main solution  
 
 ### Purpose
 A comprehensive design space exploration toolkit with multi-objective optimization capabilities, primarily built as Grasshopper plugins for Rhino 3D, featuring advanced mathematical computing and windows UI frameworks.
+
+---
+
+## Windows-only legacy (out of scope)
+
+These folders are not in `AllProjects.sln` and were not converted. They remain Windows-only legacy code:
+
+- `temp/`
+- `structurefit-master/`
+- `DesignTool/`
+- `Stepper/` (the old duplicate; the shipping Stepper project is `StepperAux/Stepper.csproj`)
+- `StormCloud/`
+- `StormCloudAnalysis/` (`StormCloudAnalysis` contains a `kernel32` `DllImport`)
+
+RhinoCommon, Grasshopper, and the Eto assemblies inside the RhinoCommon package are compile-only PackageReferences (`ExcludeAssets=runtime`, `PrivateAssets=all`). See `Directory.Build.props`.
 
 ---
 
@@ -235,6 +250,7 @@ powershell -ExecutionPolicy Bypass -File tools\Build-YakPackage.ps1
 ```
 
 The script restores NuGet packages, builds `AllProjects.sln` (Release | Any CPU), stages `.gha` files with dependency DLLs (including native NLopt), and writes a `.yak` file under `artifacts/`.
+`tools\Build-YakPackage.ps1 -MultiTarget` stages `net48/` and `net7.0/` in `artifacts/yak-any` and publishes with `yak build --platform any`, leaving `artifacts/yak` in place.
 
 ### Installation
 Install from Rhino 8 on Windows:
