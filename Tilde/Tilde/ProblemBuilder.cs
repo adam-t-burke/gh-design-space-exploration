@@ -6,7 +6,7 @@
     using StructureEngine.MachineLearning.Testing;
     using System;
     using System.Collections.Generic;
-    using System.Windows.Forms;
+    using Grasshopper.Kernel;
 
     internal class ProblemBuilder
     {
@@ -98,14 +98,14 @@
             // Currently only using RMSE
             Matrix<double> w = new DenseMatrix(1, 6, new double[] { 1.0, 0.0, 0.0, 0.0, 0.0, 0.0 });
             this.r = new RegCase(valSet.Count, true, true, true, w, null);
-            MessageBox.Show("Building Model: A message will appear when finished");
+            this.component.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Building Model: A message will appear when finished");
             List<Observation> testSet = new List<Observation>();
             foreach(Observation o in valSet)
             {
                 testSet.Add(o.ObservationClone());
             }
             this.component.rr = this.model.BuildModel(this.r, trainSet, valSet, testSet);
-            MessageBox.Show("Finished: Model built");
+            this.component.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Finished: Model built");
             this.component.modelCreated = true;
 
             // Track model type

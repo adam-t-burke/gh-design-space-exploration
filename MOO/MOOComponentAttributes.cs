@@ -6,7 +6,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Windows.Forms;
 
 namespace MOO
 {
@@ -64,7 +63,7 @@ namespace MOO
 
             MyComponent.MooDone = true;
             Grasshopper.Instances.ActiveCanvas.Document.NewSolution(true);
-            MessageBox.Show("Finished");
+            MyComponent.AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Finished");
 
             //System.IO.StreamWriter file = new System.IO.StreamWriter(@"C:\New folder\123d.txt");
             //file.WriteLine("" + problem.allSolutions.Count);

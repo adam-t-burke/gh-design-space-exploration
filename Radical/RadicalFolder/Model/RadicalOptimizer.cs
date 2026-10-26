@@ -5,7 +5,6 @@ using System.Text;
 using NLoptNet;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows.Forms;
 using LiveCharts;
 using LiveCharts.Helpers;
 using LiveCharts.Wpf;

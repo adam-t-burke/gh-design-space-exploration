@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.IO;
-using System.Windows.Forms;
+using Rhino.UI;
 using System.ComponentModel;
 using DSOptimization;
 
@@ -27,7 +27,7 @@ namespace Radical.Integration
             catch (IOException)
             {
                 string message = "The exploration record file is currently open. Close the file before attempting to save the exploration record.";
-                MessageBox.Show(message);
+                Dialogs.ShowMessage(message, "Design Space Exploration");
             }
         }
 

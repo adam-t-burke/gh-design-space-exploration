@@ -7,7 +7,6 @@
     using System;
     using System.Collections.Generic;
     using System.Drawing;
-    using System.Windows.Forms;
     using TILDA.Properties;
     using DSECommon;
 
@@ -29,7 +28,6 @@
         public SurrogateModelBuilder model;
         public bool modelCreated;
         public int numVariables;
-        private ProgressBar pb;
         public double ratio;
         public RegressionReport rr;
         public List<GH_NumberSlider> slidersListFeatures;
@@ -46,7 +44,6 @@
             this.SlidersList = new List<GH_NumberSlider>();
             this.modelCreated = false;
             this.ratio = 0.5;
-            this.pb = new ProgressBar();
         }
 
         private void readSlidersList()
@@ -111,9 +108,6 @@
 
                 
                 int num;
-                this.pb.Width = 200;
-                this.pb.Height = 50;
-                this.pb.Show();
                 this.designMap = new List<List<double>>();
                 for (num = 0; num < this.designs.Branches.Count; num++)
                 {

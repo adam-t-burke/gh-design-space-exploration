@@ -10,7 +10,6 @@ using Rhino.Geometry;
 using DSECommon;
 using System.Drawing;
 using Grasshopper.GUI.Canvas;
-using System.Windows.Forms;
 
 
 namespace Gradient_MOO
