@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net48;net7.0</TargetFrameworks>
+    <RootNamespace>DSE.Optimization.Core</RootNamespace>
+    <AssemblyName>DSE.Optimization.Core</AssemblyName>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <DseRhinoReferences>true</DseRhinoReferences>
+    <Description>Optimization models and view models shared by Radical, Stepper, and DSOpt. No UI toolkit references.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <!--
+      Drop-in for NLoptNet 1.4.3. Same NLoptSolver / NLoptAlgorithm / NloptResult surface,
+      and the package ships real osx-arm64 and osx-x64 libnlopt.dylib files.
+      NLoptNet 1.4.3 itself has win and linux RIDs only.
+    -->
+    <PackageReference Include="JClement.NLoptNet" Version="2.10.1">
+      <GeneratePathProperty>true</GeneratePathProperty>
+    </PackageReference>
+    <PackageReference Include="MathNet.Numerics" Version="5.0.0" />
+  </ItemGroup>
+  <Target Name="CopyOptimizationPackages" AfterTargets="Build" Condition="'$(TargetFramework)' != ''">
+    <PropertyGroup>
+      <_NLoptRuntimes Condition="'$(PkgJClement_NLoptNet)' != ''">$(PkgJClement_NLoptNet)\runtimes\</_NLoptRuntimes>
+      <_NLoptRuntimes Condition="'$(_NLoptRuntimes)' == ''">$(NuGetPackageRoot)jclement.nloptnet\2.10.1\runtimes\</_NLoptRuntimes>
+    </PropertyGroup>
+    <ItemGroup>
+      <_OptPkg Include="@(ReferencePath)" Condition="'%(Filename)' == 'NLoptNet' or '%(Filename)' == 'MathNet.Numerics'" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_OptPkg)" DestinationFolder="$(TargetDir)" SkipUnchangedFiles="true" />
+    <MakeDir Directories="$(TargetDir)runtimes\win-x64\native;$(TargetDir)runtimes\win-x86\native;$(TargetDir)runtimes\osx-arm64\native;$(TargetDir)runtimes\osx-x64\native" />
+    <Copy SourceFiles="$(_NLoptRuntimes)win-x64\native\nlopt.dll" DestinationFiles="$(TargetDir)runtimes\win-x64\native\nlopt.dll" SkipUnchangedFiles="true" Condition="Exists('$(_NLoptRuntimes)win-x64\native\nlopt.dll')" />
+    <Copy SourceFiles="$(_NLoptRuntimes)win-x86\native\nlopt.dll" DestinationFiles="$(TargetDir)runtimes\win-x86\native\nlopt.dll" SkipUnchangedFiles="true" Condition="Exists('$(_NLoptRuntimes)win-x86\native\nlopt.dll')" />
+    <Copy SourceFiles="$(_NLoptRuntimes)osx-arm64\native\libnlopt.dylib" DestinationFiles="$(TargetDir)runtimes\osx-arm64\native\libnlopt.dylib" SkipUnchangedFiles="true" Condition="Exists('$(_NLoptRuntimes)osx-arm64\native\libnlopt.dylib')" />
+    <Copy SourceFiles="$(_NLoptRuntimes)osx-x64\native\libnlopt.dylib" DestinationFiles="$(TargetDir)runtimes\osx-x64\native\libnlopt.dylib" SkipUnchangedFiles="true" Condition="Exists('$(_NLoptRuntimes)osx-x64\native\libnlopt.dylib')" />
+  </Target>
+</Project>

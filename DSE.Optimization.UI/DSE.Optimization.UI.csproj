@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net48;net7.0</TargetFrameworks>
+    <RootNamespace>DSE.Optimization.UI</RootNamespace>
+    <AssemblyName>DSE.Optimization.UI</AssemblyName>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <!-- Eto comes from the RhinoCommon package. Compile-only; Rhino supplies it at runtime. -->
+    <DseRhinoReferences>true</DseRhinoReferences>
+    <Description>Eto windows for Radical, Stepper, and DSOpt.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\DSE.Optimization.Core\DSE.Optimization.Core.csproj" />
+  </ItemGroup>
+</Project>

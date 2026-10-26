@@ -11,7 +11,7 @@ using Stepper.Properties;
 namespace Stepper
 {
     // Token: 0x02000019 RID: 25
-    public class StepperComponent : GH_Component
+    public partial class StepperComponent : GH_Component
     {
         // Token: 0x17000042 RID: 66
         // (get) Token: 0x060000CA RID: 202 RVA: 0x0000504B File Offset: 0x0000324B

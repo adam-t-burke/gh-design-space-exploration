@@ -7,20 +7,15 @@ using Grasshopper.Kernel.Data;
 using Rhino.Geometry;
 using System.Linq;
 using System.Text;
-using System.Windows;
-using System.Windows.Forms;
 using System.Threading.Tasks;
 using System.ComponentModel;
 using System.Diagnostics;
-using Radical.Components;
-using Radical.Integration;
-using System.Threading;
-using Stepper;
+using DSE.Optimization.UI;
 using Grasshopper.Kernel.Special;
 
 namespace DSOptimization
 { 
-    public class DSOptimizerComponent : GH_Component
+    public partial class DSOptimizerComponent : GH_Component
     {
         public List<double> Objectives { get; set; }
         public List<double> Constraints { get; set; }
@@ -294,18 +289,15 @@ namespace DSOptimization
             if (!MyComponent.IsWindowOpen && MyComponent.InputsSatisfied)
             {
                 MyComponent.IsWindowOpen = true;
-
-                Design design = new Design(MyComponent);
-
-                Thread viewerThread = new Thread(delegate ()
+                try
                 {
-                    Window viewer = new DSOptimizeWindow(design, this.MyComponent);
-                    viewer.Show();
-                    System.Windows.Threading.Dispatcher.Run();
-                });
-
-                viewerThread.SetApartmentState(ApartmentState.STA); // needs to be STA or throws exception
-                viewerThread.Start();
+                    OptimizationWindows.ShowDSOptimize(MyComponent);
+                }
+                catch
+                {
+                    MyComponent.IsWindowOpen = false;
+                    throw;
+                }
             }
             return base.RespondToMouseDoubleClick(sender, e);
         }

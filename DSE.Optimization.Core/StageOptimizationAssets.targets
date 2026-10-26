@@ -1,0 +1,22 @@
+<Project>
+  <!--
+    Copies Core's managed dependencies and the NLopt native tree next to a Grasshopper plugin.
+    Rhino loads .gha files without the plugin's deps.json, so natives must sit beside the plugin.
+  -->
+  <Target Name="StageOptimizationAssets" AfterTargets="Build" Condition="'$(TargetFramework)' != ''">
+    <PropertyGroup>
+      <_CoreOut>$(MSBuildThisFileDirectory)bin\$(Configuration)\$(TargetFramework)\</_CoreOut>
+    </PropertyGroup>
+    <ItemGroup>
+      <_StageDll Include="$(_CoreOut)NLoptNet.dll" />
+      <_StageDll Include="$(_CoreOut)MathNet.Numerics.dll" />
+      <_StageDll Include="@(ReferencePath)" Condition="'%(Filename)' == 'System.Resources.Extensions'" />
+      <_StageNative Include="$(_CoreOut)runtimes\**\*.*" />
+      <_StageNativeCopy Include="@(_StageNative)">
+        <Dest>$(TargetDir)runtimes\%(RecursiveDir)%(Filename)%(Extension)</Dest>
+      </_StageNativeCopy>
+    </ItemGroup>
+    <Copy SourceFiles="%(_StageDll.Identity)" DestinationFolder="$(TargetDir)" SkipUnchangedFiles="true" Condition="'%(_StageDll.Identity)' != ''" />
+    <Copy SourceFiles="%(_StageNativeCopy.Identity)" DestinationFiles="%(_StageNativeCopy.Dest)" SkipUnchangedFiles="true" Condition="'%(_StageNativeCopy.Dest)' != ''" />
+  </Target>
+</Project>
